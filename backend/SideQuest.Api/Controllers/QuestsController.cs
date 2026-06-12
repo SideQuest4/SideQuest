@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SideQuest.Api.Data;
 using SideQuest.Api.Dtos;
 using SideQuest.Api.Models;
+using SideQuest.Api.Services;
 
 namespace SideQuest.Api.Controllers;
 
@@ -11,8 +12,13 @@ namespace SideQuest.Api.Controllers;
 public class QuestsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IQuestNotifier _notifier;
 
-    public QuestsController(AppDbContext db) => _db = db;
+    public QuestsController(AppDbContext db, IQuestNotifier notifier)
+    {
+        _db = db;
+        _notifier = notifier;
+    }
 
     /// <summary>
     /// Quest feed. Defaults to quests still accepting bids (Open + Filling),
@@ -130,6 +136,9 @@ public class QuestsController : ControllerBase
         // Reload with navigation properties for the response DTO.
         await _db.Entry(quest).Reference(q => q.Category).LoadAsync();
         await _db.Entry(quest).Reference(q => q.Poster).LoadAsync();
+
+        // Push the new quest onto the live feed.
+        await _notifier.QuestChangedAsync(quest.Id);
 
         return CreatedAtAction(nameof(GetById), new { id = quest.Id },
             QuestDetailDto.FromEntity(quest));

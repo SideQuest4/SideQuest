@@ -44,9 +44,10 @@ public class AppDbContext : DbContext
                 .HasForeignKey(q => q.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // SlotCount / OpenSlotCount are computed in code, not stored.
+            // These are computed in code, not stored.
             e.Ignore(q => q.SlotCount);
             e.Ignore(q => q.OpenSlotCount);
+            e.Ignore(q => q.IsMultiSlot);
         });
 
         b.Entity<QuestSlot>(e =>

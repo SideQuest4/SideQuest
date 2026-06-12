@@ -12,6 +12,12 @@ export default defineConfig({
         target: "http://localhost:5080",
         changeOrigin: true,
       },
+      // SignalR hub — ws:true upgrades the WebSocket connection through the proxy.
+      "/hubs": {
+        target: "http://localhost:5080",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

@@ -58,4 +58,11 @@ public class Quest
 
     /// <summary>Number of slots not yet filled.</summary>
     public int OpenSlotCount => Slots.Count(s => s.Status == SlotStatus.Open);
+
+    /// <summary>
+    /// Multi-slot quests are fixed-price: questers claim a slot at
+    /// <see cref="BudgetCents"/> rather than bidding/negotiating. Single-slot
+    /// quests support bidding and a counter-offer.
+    /// </summary>
+    public bool IsMultiSlot => Slots.Count > 1;
 }

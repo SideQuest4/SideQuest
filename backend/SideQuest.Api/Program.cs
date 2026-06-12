@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SideQuest.Api.Data;
+using SideQuest.Api.Hubs;
+using SideQuest.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,13 +31,18 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Real-time live board.
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IQuestNotifier, QuestNotifier>();
+
 const string CorsPolicy = "frontend";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+        .AllowCredentials()); // required for SignalR cross-origin connections
 });
 
 var app = builder.Build();
@@ -60,6 +67,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(CorsPolicy);
 app.MapControllers();
+app.MapHub<QuestHub>("/hubs/quests");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();

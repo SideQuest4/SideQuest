@@ -7,6 +7,12 @@ interface Props {
   questId: string;
   currency: string;
   acceptingBids: boolean;
+  /** Multi-slot quests are fixed-price: questers claim a slot, no bidding/counter. */
+  multiSlot: boolean;
+  /** The fixed price per slot (used for multi-slot claims). */
+  fixedPriceCents: number;
+  /** Changes whenever a live bid event arrives, prompting a bid-list refresh. */
+  reloadKey?: number;
   /** Called after any action that can change the quest (e.g. a bid is accepted). */
   onQuestChanged: () => void;
 }
@@ -15,8 +21,12 @@ export default function BidPanel({
   questId,
   currency,
   acceptingBids,
+  multiSlot,
+  fixedPriceCents,
+  reloadKey,
   onQuestChanged,
 }: Props) {
+  const noun = multiSlot ? "claim" : "bid";
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +41,8 @@ export default function BidPanel({
       .finally(() => setLoading(false));
   }, [questId]);
 
-  useEffect(loadBids, [loadBids]);
+  // Reload on mount, on quest change, and whenever a live bid event bumps reloadKey.
+  useEffect(loadBids, [loadBids, reloadKey]);
 
   // Run an action, then refresh both the bid list and the parent quest.
   async function run(id: string, action: () => Promise<unknown>) {
@@ -53,23 +64,35 @@ export default function BidPanel({
       <RoleNote />
 
       {acceptingBids ? (
-        <PlaceBidForm
-          currency={currency}
-          onSubmit={(cents, msg) =>
-            run("new", async () => {
-              await api.submitBid(questId, cents, msg);
-            })
-          }
-        />
+        multiSlot ? (
+          <ClaimSlotForm
+            currency={currency}
+            fixedPriceCents={fixedPriceCents}
+            onClaim={() =>
+              run("new", async () => {
+                await api.submitBid(questId, fixedPriceCents);
+              })
+            }
+          />
+        ) : (
+          <PlaceBidForm
+            currency={currency}
+            onSubmit={(cents, msg) =>
+              run("new", async () => {
+                await api.submitBid(questId, cents, msg);
+              })
+            }
+          />
+        )
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
-          This quest is no longer accepting bids.
+          This quest is no longer accepting {multiSlot ? "claims" : "bids"}.
         </div>
       )}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-slate-700">
-          Bids {bids.length > 0 && `(${bids.length})`}
+          {multiSlot ? "Claims" : "Bids"} {bids.length > 0 && `(${bids.length})`}
         </h2>
 
         {error && (
@@ -82,7 +105,7 @@ export default function BidPanel({
           <div className="h-20 animate-pulse rounded-xl bg-white" />
         ) : bids.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-            No bids yet. Be the first to bid.
+            No {noun}s yet. Be the first to {noun} a slot.
           </div>
         ) : (
           <ul className="space-y-3">
@@ -93,6 +116,7 @@ export default function BidPanel({
                 currency={currency}
                 busy={busyId === bid.id}
                 acceptingBids={acceptingBids}
+                multiSlot={multiSlot}
                 onAccept={() => run(bid.id, () => api.acceptBid(bid.id))}
                 onDecline={() => run(bid.id, () => api.declineBid(bid.id))}
                 onCounter={(cents) =>
@@ -116,6 +140,37 @@ function RoleNote() {
       Roles aren’t separated yet (no login). Both the quester’s bid form and the
       poster’s review controls are shown so you can test the full loop.
     </p>
+  );
+}
+
+function ClaimSlotForm({
+  currency,
+  fixedPriceCents,
+  onClaim,
+}: {
+  currency: string;
+  fixedPriceCents: number;
+  onClaim: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">Claim a slot</h2>
+        <p className="text-sm text-slate-500">
+          Fixed price — every quester is paid the same{" "}
+          <span className="font-semibold text-slate-700">
+            {formatMoney(fixedPriceCents, currency)}
+          </span>{" "}
+          for this quest.
+        </p>
+      </div>
+      <button
+        onClick={onClaim}
+        className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+      >
+        Claim for {formatMoney(fixedPriceCents, currency)}
+      </button>
+    </div>
   );
 }
 
@@ -183,6 +238,7 @@ function BidRow({
   currency,
   busy,
   acceptingBids,
+  multiSlot,
   onAccept,
   onDecline,
   onCounter,
@@ -192,6 +248,7 @@ function BidRow({
   currency: string;
   busy: boolean;
   acceptingBids: boolean;
+  multiSlot: boolean;
   onAccept: () => void;
   onDecline: () => void;
   onCounter: (cents: number) => void;
@@ -243,11 +300,14 @@ function BidRow({
           {bid.status === "Pending" && !countering && (
             <div className="flex flex-wrap gap-2">
               <ActionButton kind="primary" disabled={busy} onClick={onAccept}>
-                Accept
+                {multiSlot ? "Approve" : "Accept"}
               </ActionButton>
-              <ActionButton kind="ghost" disabled={busy} onClick={() => setCountering(true)}>
-                Counter
-              </ActionButton>
+              {/* Counter-offers are single-slot only; multi-slot is fixed-price. */}
+              {!multiSlot && (
+                <ActionButton kind="ghost" disabled={busy} onClick={() => setCountering(true)}>
+                  Counter
+                </ActionButton>
+              )}
               <ActionButton kind="danger" disabled={busy} onClick={onDecline}>
                 Decline
               </ActionButton>

@@ -24,8 +24,13 @@ namespace SideQuest.Api.Controllers;
 public class BidsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IQuestNotifier _notifier;
 
-    public BidsController(AppDbContext db) => _db = db;
+    public BidsController(AppDbContext db, IQuestNotifier notifier)
+    {
+        _db = db;
+        _notifier = notifier;
+    }
 
     private static DateTimeOffset Now => DateTimeOffset.UtcNow;
 
@@ -62,16 +67,22 @@ public class BidsController : ControllerBase
         if (pick is null)
             return Conflict("All demo questers already have an active bid on this quest.");
 
+        // Multi-slot quests are fixed-price: a "claim" is always at the quest's
+        // budget, regardless of any amount the client sent. Single-slot quests
+        // use the quester's proposed amount.
+        var amountCents = quest.IsMultiSlot ? quest.BudgetCents : dto.AmountCents;
+
         var bid = new Bid
         {
             QuestId = quest.Id,
             QuesterId = pick.Id,
-            AmountCents = dto.AmountCents,
+            AmountCents = amountCents,
             Message = string.IsNullOrWhiteSpace(dto.Message) ? null : dto.Message.Trim(),
             Status = BidStatus.Pending,
         };
         _db.Bids.Add(bid);
         await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(quest.Id);
 
         bid.Quester = pick;
         return CreatedAtAction(nameof(GetForQuest), new { questId = quest.Id },
@@ -100,9 +111,11 @@ public class BidsController : ControllerBase
     [HttpPost("api/bids/{bidId:guid}/counter")]
     public async Task<ActionResult<BidDto>> Counter(Guid bidId, [FromBody] CounterBidDto dto)
     {
-        var bid = await LoadBidAsync(bidId);
+        var bid = await LoadBidAsync(bidId, includeQuestGraph: true);
         if (bid is null) return NotFound("Bid not found.");
 
+        if (bid.Quest!.IsMultiSlot)
+            return Conflict("Multi-slot quests are fixed-price; counter-offers aren't available.");
         if (bid.Status != BidStatus.Pending)
             return Conflict("Only a pending bid can be countered.");
 
@@ -110,6 +123,7 @@ public class BidsController : ControllerBase
         bid.Status = BidStatus.Countered;
         bid.UpdatedAt = Now;
         await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(bid.QuestId);
 
         return Ok(BidDto.FromEntity(bid));
     }
@@ -130,6 +144,7 @@ public class BidsController : ControllerBase
         // TODO(stripe): capture escrow for bid.AmountCents on acceptance.
         QuestWorkflow.AcceptBid(bid.Quest!, bid, bid.AmountCents, Now);
         await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(bid.QuestId);
 
         return Ok(BidDto.FromEntity(bid));
     }
@@ -148,6 +163,7 @@ public class BidsController : ControllerBase
         bid.Status = BidStatus.Declined;
         bid.UpdatedAt = Now;
         await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(bid.QuestId);
 
         return Ok(BidDto.FromEntity(bid));
     }
@@ -168,6 +184,7 @@ public class BidsController : ControllerBase
             bid.Status = BidStatus.Declined;
             bid.UpdatedAt = Now;
             await _db.SaveChangesAsync();
+            await _notifier.BidsChangedAsync(bid.QuestId);
             return Ok(BidDto.FromEntity(bid));
         }
 
@@ -178,6 +195,7 @@ public class BidsController : ControllerBase
         var agreed = bid.CounterAmountCents ?? bid.AmountCents;
         QuestWorkflow.AcceptBid(bid.Quest!, bid, agreed, Now);
         await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(bid.QuestId);
 
         return Ok(BidDto.FromEntity(bid));
     }

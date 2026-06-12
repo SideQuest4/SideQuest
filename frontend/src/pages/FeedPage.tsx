@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { onQuestChanged } from "../hub";
 import type { Category, QuestSummary } from "../types";
 import QuestCard from "../components/QuestCard";
 
@@ -42,6 +43,35 @@ export default function FeedPage() {
       cancelled = true;
       clearTimeout(handle);
     };
+  }, [activeCategory, search]);
+
+  // Live updates: merge changed quests into the feed in real time, respecting
+  // the active category/search filters and dropping quests that close.
+  useEffect(() => {
+    const term = search.trim().toLowerCase();
+    const matches = (q: QuestSummary) => {
+      const byCategory = !activeCategory || q.category.slug === activeCategory;
+      const bySearch =
+        !term ||
+        q.title.toLowerCase().includes(term) ||
+        q.description.toLowerCase().includes(term);
+      const available = q.status === "Open" || q.status === "Filling";
+      return byCategory && bySearch && available;
+    };
+
+    return onQuestChanged((updated) => {
+      setQuests((prev) => {
+        const idx = prev.findIndex((q) => q.id === updated.id);
+        if (!matches(updated)) {
+          // No longer belongs in this view (closed, or filtered out).
+          return idx === -1 ? prev : prev.filter((q) => q.id !== updated.id);
+        }
+        if (idx === -1) return [updated, ...prev]; // new/now-matching quest
+        const copy = [...prev];
+        copy[idx] = updated;
+        return copy;
+      });
+    });
   }, [activeCategory, search]);
 
   return (

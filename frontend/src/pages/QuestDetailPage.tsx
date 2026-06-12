@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { watchQuestBids } from "../hub";
 import type { QuestDetail } from "../types";
 import { formatMoney, formatRelativeTime } from "../format";
 import StatusBadge from "../components/StatusBadge";
@@ -11,6 +12,8 @@ export default function QuestDetailPage() {
   const [quest, setQuest] = useState<QuestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped on every live bid event so the BidPanel re-fetches its list.
+  const [liveTick, setLiveTick] = useState(0);
 
   const loadQuest = useCallback(() => {
     if (!id) return;
@@ -25,6 +28,15 @@ export default function QuestDetailPage() {
     setLoading(true);
     loadQuest();
   }, [loadQuest]);
+
+  // Live: when this quest's bids change, refresh the quest and the bid list.
+  useEffect(() => {
+    if (!id) return;
+    return watchQuestBids(id, () => {
+      loadQuest();
+      setLiveTick((t) => t + 1);
+    });
+  }, [id, loadQuest]);
 
   if (loading) {
     return <div className="h-64 animate-pulse rounded-xl bg-white" />;
@@ -114,6 +126,9 @@ export default function QuestDetailPage() {
         questId={quest.id}
         currency={quest.currency}
         acceptingBids={quest.status === "Open" || quest.status === "Filling"}
+        multiSlot={quest.slots.length > 1}
+        fixedPriceCents={quest.budgetCents}
+        reloadKey={liveTick}
         onQuestChanged={loadQuest}
       />
     </div>
