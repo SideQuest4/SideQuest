@@ -1,6 +1,18 @@
 // Shapes returned by the SideQuest API. Kept in sync with the backend DTOs.
 
-export type QuestStatus = "Open" | "Filled" | "Completed" | "Cancelled";
+export type QuestStatus =
+  | "Open"
+  | "Filling"
+  | "Closed"
+  | "Complete"
+  | "Disputed";
+
+export type SlotStatus =
+  | "Open"
+  | "Active"
+  | "Completed"
+  | "Dropped"
+  | "Kicked";
 
 export interface Category {
   id: string;
@@ -16,7 +28,7 @@ export interface Poster {
 
 export interface Slot {
   id: string;
-  status: "Open" | "Filled" | "Completed";
+  status: SlotStatus;
   assignedQuesterId: string | null;
 }
 
@@ -39,6 +51,27 @@ export interface QuestSummary {
 
 export interface QuestDetail extends Omit<QuestSummary, "slotCount" | "openSlotCount"> {
   slots: Slot[];
+  updatedAt: string;
+}
+
+export type BidStatus = "Pending" | "Countered" | "Accepted" | "Declined";
+
+export interface Quester {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export interface Bid {
+  id: string;
+  questId: string;
+  quester: Quester;
+  amountCents: number;
+  counterAmountCents: number | null;
+  effectiveAmountCents: number;
+  message: string | null;
+  status: BidStatus;
+  createdAt: string;
   updatedAt: string;
 }
 

@@ -15,14 +15,19 @@ public class QuestsController : ControllerBase
     public QuestsController(AppDbContext db) => _db = db;
 
     /// <summary>
-    /// Quest feed. Returns open quests by default, newest first, with optional
-    /// category, search, and status filters plus simple paging.
+    /// Quest feed. Defaults to quests still accepting bids (Open + Filling),
+    /// newest first, with optional category, search, and status filters plus
+    /// simple paging.
     /// </summary>
+    /// <param name="status">
+    /// "available" (default) for quests accepting bids, "all" for every quest,
+    /// or a specific status name (Open, Filling, Closed, Complete, Disputed).
+    /// </param>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<QuestSummaryDto>>> GetFeed(
         [FromQuery] string? category,
         [FromQuery] string? search,
-        [FromQuery] string status = "open",
+        [FromQuery] string status = "available",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -36,8 +41,14 @@ public class QuestsController : ControllerBase
             .Include(q => q.Bids)
             .AsQueryable();
 
-        // Status filter: "open" (default), "all", or a specific QuestStatus.
-        if (!string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+        // Status filter: "available" (default — accepting bids), "all", or a
+        // specific QuestStatus name.
+        if (string.Equals(status, "available", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(q =>
+                q.Status == QuestStatus.Open || q.Status == QuestStatus.Filling);
+        }
+        else if (!string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
             if (Enum.TryParse<QuestStatus>(status, ignoreCase: true, out var parsed))
                 query = query.Where(q => q.Status == parsed);

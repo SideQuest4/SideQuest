@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { QuestDetail } from "../types";
 import { formatMoney, formatRelativeTime } from "../format";
 import StatusBadge from "../components/StatusBadge";
+import BidPanel from "../components/BidPanel";
 
 export default function QuestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -11,15 +12,19 @@ export default function QuestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadQuest = useCallback(() => {
     if (!id) return;
-    setLoading(true);
     api
       .getQuest(id)
       .then(setQuest)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    setLoading(true);
+    loadQuest();
+  }, [loadQuest]);
 
   if (loading) {
     return <div className="h-64 animate-pulse rounded-xl bg-white" />;
@@ -105,10 +110,12 @@ export default function QuestDetailPage() {
         </div>
       </div>
 
-      {/* Bidding is the next milestone (Week 5). */}
-      <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-        Bidding &amp; counter-offers arrive in the next milestone.
-      </div>
+      <BidPanel
+        questId={quest.id}
+        currency={quest.currency}
+        acceptingBids={quest.status === "Open" || quest.status === "Filling"}
+        onQuestChanged={loadQuest}
+      />
     </div>
   );
 }

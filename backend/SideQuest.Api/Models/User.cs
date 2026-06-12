@@ -23,6 +23,10 @@ public class User
     [MaxLength(500)]
     public string? AvatarUrl { get; set; }
 
+    /// <summary>City-level location label, e.g. "Seattle, WA".</summary>
+    [MaxLength(120)]
+    public string? Location { get; set; }
+
     [MaxLength(1000)]
     public string? Bio { get; set; }
 

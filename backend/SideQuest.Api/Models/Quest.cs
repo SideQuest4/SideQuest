@@ -4,8 +4,9 @@ namespace SideQuest.Api.Models;
 
 /// <summary>
 /// A task posted to the marketplace. A quest offers one or more identical
-/// <see cref="QuestSlot"/>s that questers bid to fill. When every slot is filled
-/// the quest auto-closes (<see cref="QuestStatus.Filled"/>).
+/// <see cref="QuestSlot"/>s that questers bid to fill. It moves
+/// Open → Filling (some slots taken) → Closed (all slots taken) → Complete,
+/// or Disputed when flagged for manual review.
 /// </summary>
 public class Quest
 {
@@ -31,6 +32,13 @@ public class Quest
     public DateTimeOffset? Deadline { get; set; }
 
     public QuestStatus Status { get; set; } = QuestStatus.Open;
+
+    /// <summary>When the quest was flagged for review, if it has been.</summary>
+    public DateTimeOffset? DisputedAt { get; set; }
+
+    /// <summary>Reason supplied when flagging the quest for manual review.</summary>
+    [MaxLength(1000)]
+    public string? DisputeReason { get; set; }
 
     // Relationships
     public Guid PosterId { get; set; }

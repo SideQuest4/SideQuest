@@ -17,12 +17,11 @@ public static class SeedData
 
         var categories = new[]
         {
-            new Category { Name = "Home Repair", Slug = "home-repair" },
-            new Category { Name = "Moving & Hauling", Slug = "moving-hauling" },
-            new Category { Name = "Tech Help", Slug = "tech-help" },
+            new Category { Name = "Physical", Slug = "physical" },
+            new Category { Name = "Tech", Slug = "tech" },
             new Category { Name = "Creative", Slug = "creative" },
             new Category { Name = "Errands", Slug = "errands" },
-            new Category { Name = "Tutoring", Slug = "tutoring" },
+            new Category { Name = "Knowledge", Slug = "knowledge" },
         };
         db.Categories.AddRange(categories);
 
@@ -30,31 +29,50 @@ public static class SeedData
         {
             DisplayName = "Alice Poster",
             Email = "alice@example.com",
+            Location = "Seattle, WA",
             Bio = "Busy parent who outsources weekend tasks.",
         };
+        // Several questers so multi-slot quests can be filled by different people
+        // while auth is still stubbed (the bid stub rotates through available
+        // questers — see BidsController.Submit).
         var bob = new User
         {
             DisplayName = "Bob Quester",
             Email = "bob@example.com",
+            Location = "Seattle, WA",
             Bio = "Handyman and all-round fixer.",
         };
-        db.Users.AddRange(alice, bob);
+        var cara = new User
+        {
+            DisplayName = "Cara Quester",
+            Email = "cara@example.com",
+            Location = "Tacoma, WA",
+            Bio = "Designer and part-time mover.",
+        };
+        var dan = new User
+        {
+            DisplayName = "Dan Quester",
+            Email = "dan@example.com",
+            Location = "Bellevue, WA",
+            Bio = "CS student who tutors and fixes laptops.",
+        };
+        db.Users.AddRange(alice, bob, cara, dan);
 
         Category Cat(string slug) => categories.First(c => c.Slug == slug);
 
         var quests = new[]
         {
-            NewQuest(alice, Cat("home-repair"),
+            NewQuest(alice, Cat("physical"),
                 "Mount a 55\" TV on drywall",
                 "Need a TV mounted on a drywall wall with the cables hidden in a cord cover. I have the mount and bracket.",
                 budgetCents: 8000, location: "Seattle, WA", slots: 1),
 
-            NewQuest(alice, Cat("moving-hauling"),
+            NewQuest(alice, Cat("physical"),
                 "Help move a 1-bedroom apartment",
                 "Two movers needed for ~3 hours on Saturday. Mostly boxes plus a couch and a bed frame. Truck is already rented.",
                 budgetCents: 12000, location: "Seattle, WA", slots: 2),
 
-            NewQuest(alice, Cat("tech-help"),
+            NewQuest(alice, Cat("tech"),
                 "Set up a home mesh Wi-Fi system",
                 "Replace my old router with a 3-node mesh kit and get good coverage across two floors.",
                 budgetCents: 6000, location: "Remote OK for advice", slots: 1),
@@ -63,6 +81,11 @@ public static class SeedData
                 "Design a simple logo for a coffee cart",
                 "Looking for a clean, friendly logo. Provide source files (SVG) and a couple of color variations.",
                 budgetCents: 15000, location: "Remote", slots: 1),
+
+            NewQuest(alice, Cat("knowledge"),
+                "Tutor me on intro calculus (2 sessions)",
+                "Need help understanding limits and derivatives before a midterm. Two 1-hour video sessions.",
+                budgetCents: 9000, location: "Remote", slots: 1),
         };
         db.Quests.AddRange(quests);
 

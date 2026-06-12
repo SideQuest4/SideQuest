@@ -1,4 +1,5 @@
 import type {
+  Bid,
   Category,
   CreateQuestInput,
   QuestDetail,
@@ -58,5 +59,32 @@ export const api = {
     request<QuestDetail>("/quests", {
       method: "POST",
       body: JSON.stringify(input),
+    }),
+
+  // ---- Bidding ----
+  getBids: (questId: string) => request<Bid[]>(`/quests/${questId}/bids`),
+
+  submitBid: (questId: string, amountCents: number, message?: string) =>
+    request<Bid>(`/quests/${questId}/bids`, {
+      method: "POST",
+      body: JSON.stringify({ amountCents, message: message || null }),
+    }),
+
+  counterBid: (bidId: string, counterAmountCents: number) =>
+    request<Bid>(`/bids/${bidId}/counter`, {
+      method: "POST",
+      body: JSON.stringify({ counterAmountCents }),
+    }),
+
+  acceptBid: (bidId: string) =>
+    request<Bid>(`/bids/${bidId}/accept`, { method: "POST" }),
+
+  declineBid: (bidId: string) =>
+    request<Bid>(`/bids/${bidId}/decline`, { method: "POST" }),
+
+  respondToCounter: (bidId: string, accept: boolean) =>
+    request<Bid>(`/bids/${bidId}/respond`, {
+      method: "POST",
+      body: JSON.stringify({ accept }),
     }),
 };
