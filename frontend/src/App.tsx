@@ -6,12 +6,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-lg font-bold">
-            <span className="text-2xl">🗺️</span>
-            <span>
-              Side<span className="text-indigo-600">Quest</span>
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2.5">
+          <Link to="/" className="flex items-center gap-2.5" aria-label="SideQuest home">
+            {/* Transparent-background logo blends into the bar — no box, no crop. */}
+            <img src="/logo.png" alt="" className="h-9 w-9 object-contain" />
+            <span className="flex flex-col leading-none">
+              <span className="text-lg font-bold tracking-tight text-slate-900">
+                SideQuest
+              </span>
+              <span className="mt-0.5 text-xs font-medium text-slate-500">
+                Begin your next quest
+              </span>
             </span>
           </Link>
           {!onCreate && (
