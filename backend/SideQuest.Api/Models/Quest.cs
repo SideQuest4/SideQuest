@@ -49,6 +49,7 @@ public class Quest
 
     public ICollection<QuestSlot> Slots { get; set; } = new List<QuestSlot>();
     public ICollection<Bid> Bids { get; set; } = new List<Bid>();
+    public ICollection<EscrowPayment> EscrowPayments { get; set; } = new List<EscrowPayment>();
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

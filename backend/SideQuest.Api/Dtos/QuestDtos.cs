@@ -42,6 +42,7 @@ public record QuestDetailDto(
     PosterDto Poster,
     IReadOnlyList<SlotDto> Slots,
     int BidCount,
+    EscrowSummaryDto Escrow,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt)
 {
@@ -50,7 +51,26 @@ public record QuestDetailDto(
         q.Deadline, q.Status.ToString(),
         CategoryDto.FromEntity(q.Category!), PosterDto.FromEntity(q.Poster!),
         q.Slots.OrderBy(s => s.CreatedAt).Select(SlotDto.FromEntity).ToList(),
-        q.Bids.Count, q.CreatedAt, q.UpdatedAt);
+        q.Bids.Count, EscrowSummaryDto.FromQuest(q), q.CreatedAt, q.UpdatedAt);
+}
+
+/// <summary>Aggregate escrow state for a quest, for display.</summary>
+public record EscrowSummaryDto(
+    int HeldCount,
+    int ReleasedCount,
+    long HeldAmountCents,
+    long ReleasedAmountCents)
+{
+    public static EscrowSummaryDto FromQuest(Quest q)
+    {
+        var held = q.EscrowPayments.Where(p => p.Status == EscrowStatus.Held).ToList();
+        var released = q.EscrowPayments.Where(p => p.Status == EscrowStatus.Released).ToList();
+        return new EscrowSummaryDto(
+            held.Count,
+            released.Count,
+            held.Sum(p => p.AmountCents),
+            released.Sum(p => p.QuesterPayoutCents));
+    }
 }
 
 public record SlotDto(Guid Id, string Status, Guid? AssignedQuesterId)

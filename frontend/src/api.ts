@@ -61,6 +61,9 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  completeQuest: (id: string) =>
+    request<QuestDetail>(`/quests/${id}/complete`, { method: "POST" }),
+
   // ---- Bidding ----
   getBids: (questId: string) => request<Bid[]>(`/quests/${questId}/bids`),
 

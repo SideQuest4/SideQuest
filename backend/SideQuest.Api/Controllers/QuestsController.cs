@@ -13,11 +13,13 @@ public class QuestsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IQuestNotifier _notifier;
+    private readonly IPaymentService _payments;
 
-    public QuestsController(AppDbContext db, IQuestNotifier notifier)
+    public QuestsController(AppDbContext db, IQuestNotifier notifier, IPaymentService payments)
     {
         _db = db;
         _notifier = notifier;
+        _payments = payments;
     }
 
     /// <summary>
@@ -91,9 +93,70 @@ public class QuestsController : ControllerBase
             .Include(q => q.Poster)
             .Include(q => q.Slots)
             .Include(q => q.Bids)
+            .Include(q => q.EscrowPayments)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         return quest is null ? NotFound() : Ok(QuestDetailDto.FromEntity(quest));
+    }
+
+    /// <summary>
+    /// Poster marks the quest complete: every filled slot is closed out and its
+    /// escrow is released to the quester. Moves the quest to Complete.
+    /// </summary>
+    /// <remarks>
+    /// Auth is stubbed, so the caller is trusted to be the poster. Auto-release
+    /// after a review window and dispute-driven refunds come with the dispute flow.
+    /// </remarks>
+    [HttpPost("{id:guid}/complete")]
+    public async Task<ActionResult<QuestDetailDto>> Complete(Guid id)
+    {
+        var quest = await _db.Quests
+            .Include(q => q.Category)
+            .Include(q => q.Poster)
+            .Include(q => q.Slots)
+            .Include(q => q.Bids)
+            .Include(q => q.EscrowPayments)
+            .FirstOrDefaultAsync(q => q.Id == id);
+
+        if (quest is null) return NotFound();
+        if (quest.Status == QuestStatus.Complete)
+            return Conflict("Quest is already complete.");
+        if (quest.Status == QuestStatus.Disputed)
+            return Conflict("Quest is under dispute and can't be completed.");
+
+        var filledSlots = quest.Slots.Where(s => s.Status == SlotStatus.Active).ToList();
+        if (filledSlots.Count == 0)
+            return Conflict("There are no filled slots to complete.");
+
+        // Release every held escrow to its quester.
+        var now = DateTimeOffset.UtcNow;
+        foreach (var payment in quest.EscrowPayments.Where(p => p.Status == EscrowStatus.Held))
+        {
+            var outcome = await _payments.ReleaseAsync(payment);
+            if (!outcome.Success)
+                return Problem(
+                    detail: $"Payout failed: {outcome.FailureReason}",
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Escrow release failed");
+
+            payment.Status = EscrowStatus.Released;
+            payment.PayoutRef = outcome.PayoutRef;
+            payment.ReleasedAt = now;
+        }
+
+        foreach (var slot in filledSlots)
+        {
+            slot.Status = SlotStatus.Completed;
+            slot.CompletedAt = now;
+        }
+
+        quest.Status = QuestStatus.Complete;
+        quest.UpdatedAt = now;
+
+        await _db.SaveChangesAsync();
+        await _notifier.QuestChangedAsync(quest.Id);
+
+        return Ok(QuestDetailDto.FromEntity(quest));
     }
 
     /// <summary>

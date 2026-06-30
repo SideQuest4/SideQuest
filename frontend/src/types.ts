@@ -49,8 +49,16 @@ export interface QuestSummary {
   createdAt: string;
 }
 
+export interface EscrowSummary {
+  heldCount: number;
+  releasedCount: number;
+  heldAmountCents: number;
+  releasedAmountCents: number;
+}
+
 export interface QuestDetail extends Omit<QuestSummary, "slotCount" | "openSlotCount"> {
   slots: Slot[];
+  escrow: EscrowSummary;
   updatedAt: string;
 }
 

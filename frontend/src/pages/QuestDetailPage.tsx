@@ -98,6 +98,8 @@ export default function QuestDetailPage() {
         </dl>
       </div>
 
+      <EscrowPanel quest={quest} onComplete={loadQuest} />
+
       {/* Slots */}
       <div className="mt-6">
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Slots</h2>
@@ -140,6 +142,86 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
       <dd className="mt-0.5 font-medium text-slate-700">{value}</dd>
+    </div>
+  );
+}
+
+function EscrowPanel({
+  quest,
+  onComplete,
+}: {
+  quest: QuestDetail;
+  onComplete: () => void;
+}) {
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { escrow } = quest;
+
+  // Nothing to show until money is involved (or if an older API omits the field).
+  if (!escrow || (escrow.heldCount === 0 && escrow.releasedCount === 0)) return null;
+
+  const isComplete = quest.status === "Complete";
+
+  async function markComplete() {
+    setCompleting(true);
+    setError(null);
+    try {
+      await api.completeQuest(quest.id);
+      onComplete();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCompleting(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700">Escrow</h2>
+          {isComplete ? (
+            <p className="mt-1 text-sm text-emerald-700">
+              ✓ Paid out{" "}
+              <span className="font-semibold">
+                {formatMoney(escrow.releasedAmountCents, quest.currency)}
+              </span>{" "}
+              to {escrow.releasedCount} quester
+              {escrow.releasedCount === 1 ? "" : "s"}.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-600">
+              💰{" "}
+              <span className="font-semibold">
+                {formatMoney(escrow.heldAmountCents, quest.currency)}
+              </span>{" "}
+              held in escrow across {escrow.heldCount} filled slot
+              {escrow.heldCount === 1 ? "" : "s"} — released to questers on
+              completion.
+            </p>
+          )}
+        </div>
+
+        {!isComplete && escrow.heldCount > 0 && (
+          <button
+            onClick={markComplete}
+            disabled={completing}
+            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {completing ? "Releasing…" : "Mark complete & pay out"}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="mt-3 rounded-lg bg-rose-50 px-4 py-2 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-amber-700">
+        Poster action (login not wired yet). Completion releases all held escrow.
+      </p>
     </div>
   );
 }

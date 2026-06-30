@@ -25,11 +25,19 @@ public class BidsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IQuestNotifier _notifier;
+    private readonly IPaymentService _payments;
+    private readonly PaymentOptions _fees;
 
-    public BidsController(AppDbContext db, IQuestNotifier notifier)
+    public BidsController(
+        AppDbContext db,
+        IQuestNotifier notifier,
+        IPaymentService payments,
+        PaymentOptions fees)
     {
         _db = db;
         _notifier = notifier;
+        _payments = payments;
+        _fees = fees;
     }
 
     private static DateTimeOffset Now => DateTimeOffset.UtcNow;
@@ -141,12 +149,8 @@ public class BidsController : ControllerBase
         if (!QuestWorkflow.IsAcceptingBids(bid.Quest!))
             return Conflict("This quest is no longer accepting bids.");
 
-        // TODO(stripe): capture escrow for bid.AmountCents on acceptance.
-        QuestWorkflow.AcceptBid(bid.Quest!, bid, bid.AmountCents, Now);
-        await _db.SaveChangesAsync();
-        await _notifier.BidsChangedAsync(bid.QuestId);
-
-        return Ok(BidDto.FromEntity(bid));
+        var failure = await CaptureAndFillAsync(bid, bid.AmountCents);
+        return failure ?? Ok(BidDto.FromEntity(bid));
     }
 
     // ---- Poster: decline a bid -------------------------------------------------
@@ -191,16 +195,59 @@ public class BidsController : ControllerBase
         if (!QuestWorkflow.IsAcceptingBids(bid.Quest!))
             return Conflict("This quest is no longer accepting bids.");
 
-        // TODO(stripe): capture escrow for the agreed counter amount.
         var agreed = bid.CounterAmountCents ?? bid.AmountCents;
-        QuestWorkflow.AcceptBid(bid.Quest!, bid, agreed, Now);
-        await _db.SaveChangesAsync();
-        await _notifier.BidsChangedAsync(bid.QuestId);
-
-        return Ok(BidDto.FromEntity(bid));
+        var failure = await CaptureAndFillAsync(bid, agreed);
+        return failure ?? Ok(BidDto.FromEntity(bid));
     }
 
     // ---- helpers --------------------------------------------------------------
+
+    /// <summary>
+    /// Fill the next open slot with this bid and hold the agreed amount in escrow
+    /// (capture-at-acceptance). The slot fill is only persisted if the capture
+    /// succeeds — a failed/declined capture leaves the slot Open and nothing saved.
+    /// Returns an error result on failure, or null on success.
+    /// </summary>
+    private async Task<ActionResult?> CaptureAndFillAsync(Bid bid, long agreedAmountCents)
+    {
+        var quest = bid.Quest!;
+
+        // Mutate in memory first; SaveChanges happens only after a successful capture,
+        // so an abort here discards the fill with the request's DbContext scope.
+        var slot = QuestWorkflow.AcceptBid(quest, bid, agreedAmountCents, Now);
+
+        var posterFee = _fees.PosterFeeFor(agreedAmountCents);
+        var questerFee = _fees.QuesterFeeFor(agreedAmountCents);
+
+        var capture = await _payments.CaptureAsync(new EscrowCaptureRequest(
+            quest.Id, slot.Id, bid.Id, quest.PosterId, bid.QuesterId,
+            agreedAmountCents, posterFee, questerFee, quest.Currency));
+
+        if (!capture.Success)
+            return Problem(
+                detail: $"Payment could not be held: {capture.FailureReason}",
+                statusCode: StatusCodes.Status402PaymentRequired,
+                title: "Escrow capture failed");
+
+        _db.EscrowPayments.Add(new EscrowPayment
+        {
+            QuestId = quest.Id,
+            SlotId = slot.Id,
+            BidId = bid.Id,
+            PosterId = quest.PosterId,
+            QuesterId = bid.QuesterId,
+            AmountCents = agreedAmountCents,
+            PosterFeeCents = posterFee,
+            QuesterFeeCents = questerFee,
+            Currency = quest.Currency,
+            Status = EscrowStatus.Held,
+            CaptureRef = capture.CaptureRef,
+        });
+
+        await _db.SaveChangesAsync();
+        await _notifier.BidsChangedAsync(quest.Id);
+        return null;
+    }
 
     private async Task<Bid?> LoadBidAsync(Guid bidId, bool includeQuestGraph = false)
     {

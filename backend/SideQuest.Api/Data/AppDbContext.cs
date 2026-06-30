@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<QuestSlot> QuestSlots => Set<QuestSlot>();
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<Rating> Ratings => Set<Rating>();
+    public DbSet<EscrowPayment> EscrowPayments => Set<EscrowPayment>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -81,6 +82,28 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Quester)
                 .WithMany(u => u.Bids)
                 .HasForeignKey(x => x.QuesterId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        b.Entity<EscrowPayment>(e =>
+        {
+            e.HasIndex(p => p.Status);
+            e.Ignore(p => p.PosterChargeCents);
+            e.Ignore(p => p.QuesterPayoutCents);
+
+            e.HasOne(p => p.Quest)
+                .WithMany(q => q.EscrowPayments)
+                .HasForeignKey(p => p.QuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(p => p.Slot)
+                .WithMany()
+                .HasForeignKey(p => p.SlotId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(p => p.Bid)
+                .WithMany()
+                .HasForeignKey(p => p.BidId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

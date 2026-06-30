@@ -35,6 +35,21 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IQuestNotifier, QuestNotifier>();
 
+// Payments / escrow. Uses Stripe when a secret key is configured, otherwise an
+// in-process mock so the full hold -> release/refund flow runs with zero setup.
+var paymentOptions =
+    builder.Configuration.GetSection("Payments").Get<PaymentOptions>() ?? new PaymentOptions();
+builder.Services.AddSingleton(paymentOptions);
+
+var stripeOptions =
+    builder.Configuration.GetSection("Stripe").Get<StripeOptions>() ?? new StripeOptions();
+builder.Services.AddSingleton(stripeOptions);
+
+if (!string.IsNullOrWhiteSpace(stripeOptions.SecretKey))
+    builder.Services.AddScoped<IPaymentService, StripePaymentService>();
+else
+    builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+
 const string CorsPolicy = "frontend";
 builder.Services.AddCors(options =>
 {
