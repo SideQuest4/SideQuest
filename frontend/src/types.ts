@@ -62,8 +62,12 @@ export interface EscrowSummary {
 export interface QuestDetail extends Omit<QuestSummary, "slotCount" | "openSlotCount"> {
   slots: Slot[];
   escrow: EscrowSummary;
+  disputeReason: string | null;
+  disputedAt: string | null;
   updatedAt: string;
 }
+
+export type DisputeOutcome = "refund" | "release";
 
 export type BidStatus = "Pending" | "Countered" | "Accepted" | "Declined";
 

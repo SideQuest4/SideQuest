@@ -3,6 +3,7 @@ import type {
   Category,
   CreateQuestInput,
   CreateRatingInput,
+  DisputeOutcome,
   QuestDetail,
   QuestSummary,
   Rating,
@@ -66,6 +67,18 @@ export const api = {
 
   completeQuest: (id: string) =>
     request<QuestDetail>(`/quests/${id}/complete`, { method: "POST" }),
+
+  openDispute: (questId: string, byUserId: string, reason: string) =>
+    request<QuestDetail>(`/quests/${questId}/dispute`, {
+      method: "POST",
+      body: JSON.stringify({ byUserId, reason }),
+    }),
+
+  resolveDispute: (questId: string, outcome: DisputeOutcome) =>
+    request<QuestDetail>(`/quests/${questId}/dispute/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ outcome }),
+    }),
 
   // ---- Bidding ----
   getBids: (questId: string) => request<Bid[]>(`/quests/${questId}/bids`),

@@ -7,6 +7,7 @@ import { formatMoney, formatRelativeTime } from "../format";
 import StatusBadge from "../components/StatusBadge";
 import BidPanel from "../components/BidPanel";
 import RatingPanel from "../components/RatingPanel";
+import DisputePanel from "../components/DisputePanel";
 import Stars from "../components/Stars";
 
 export default function QuestDetailPage() {
@@ -107,6 +108,8 @@ export default function QuestDetailPage() {
       </div>
 
       <EscrowPanel quest={quest} onComplete={loadQuest} />
+
+      <DisputePanel quest={quest} onChanged={loadQuest} />
 
       <RatingPanel quest={quest} reloadKey={liveTick} />
 
