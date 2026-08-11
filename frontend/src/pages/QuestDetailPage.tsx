@@ -6,6 +6,8 @@ import type { QuestDetail } from "../types";
 import { formatMoney, formatRelativeTime } from "../format";
 import StatusBadge from "../components/StatusBadge";
 import BidPanel from "../components/BidPanel";
+import RatingPanel from "../components/RatingPanel";
+import Stars from "../components/Stars";
 
 export default function QuestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -71,9 +73,15 @@ export default function QuestDetailPage() {
               <StatusBadge status={quest.status} />
             </div>
             <h1 className="text-2xl font-bold">{quest.title}</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Posted by {quest.poster.displayName} ·{" "}
-              {formatRelativeTime(quest.createdAt)}
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
+              <span>Posted by {quest.poster.displayName}</span>
+              {quest.poster.ratingCount > 0 && (
+                <Stars
+                  value={quest.poster.averageStars}
+                  count={quest.poster.ratingCount}
+                />
+              )}
+              <span>· {formatRelativeTime(quest.createdAt)}</span>
             </p>
           </div>
           <div className="shrink-0 text-right">
@@ -99,6 +107,8 @@ export default function QuestDetailPage() {
       </div>
 
       <EscrowPanel quest={quest} onComplete={loadQuest} />
+
+      <RatingPanel quest={quest} reloadKey={liveTick} />
 
       {/* Slots */}
       <div className="mt-6">

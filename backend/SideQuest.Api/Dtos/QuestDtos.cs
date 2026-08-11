@@ -73,10 +73,14 @@ public record EscrowSummaryDto(
     }
 }
 
-public record SlotDto(Guid Id, string Status, Guid? AssignedQuesterId)
+public record SlotDto(
+    Guid Id,
+    string Status,
+    Guid? AssignedQuesterId,
+    string? AssignedQuesterName)
 {
     public static SlotDto FromEntity(QuestSlot s) =>
-        new(s.Id, s.Status.ToString(), s.AssignedQuesterId);
+        new(s.Id, s.Status.ToString(), s.AssignedQuesterId, s.AssignedQuester?.DisplayName);
 }
 
 public record CategoryDto(Guid Id, string Name, string Slug)
@@ -84,9 +88,22 @@ public record CategoryDto(Guid Id, string Name, string Slug)
     public static CategoryDto FromEntity(Category c) => new(c.Id, c.Name, c.Slug);
 }
 
-public record PosterDto(Guid Id, string DisplayName, string? AvatarUrl)
+public record PosterDto(
+    Guid Id,
+    string DisplayName,
+    string? AvatarUrl,
+    double? AverageStars,
+    int RatingCount)
 {
-    public static PosterDto FromEntity(User u) => new(u.Id, u.DisplayName, u.AvatarUrl);
+    public static PosterDto FromEntity(User u)
+    {
+        // RatingsReceived is only populated when the query includes it; an empty
+        // collection just reads as "no ratings yet" (null average).
+        var received = u.RatingsReceived;
+        var count = received?.Count ?? 0;
+        double? avg = count > 0 ? Math.Round(received!.Average(r => r.Stars), 1) : null;
+        return new(u.Id, u.DisplayName, u.AvatarUrl, avg, count);
+    }
 }
 
 /// <summary>Payload for creating a quest.</summary>

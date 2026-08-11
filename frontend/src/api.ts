@@ -2,8 +2,11 @@ import type {
   Bid,
   Category,
   CreateQuestInput,
+  CreateRatingInput,
   QuestDetail,
   QuestSummary,
+  Rating,
+  UserRatingSummary,
 } from "./types";
 
 // Requests go to /api, which Vite proxies to the backend in dev.
@@ -89,5 +92,18 @@ export const api = {
     request<Bid>(`/bids/${bidId}/respond`, {
       method: "POST",
       body: JSON.stringify({ accept }),
+    }),
+
+  // ---- Ratings ----
+  getQuestRatings: (questId: string) =>
+    request<Rating[]>(`/quests/${questId}/ratings`),
+
+  getUserRatings: (userId: string) =>
+    request<UserRatingSummary>(`/users/${userId}/ratings`),
+
+  createRating: (questId: string, input: CreateRatingInput) =>
+    request<Rating>(`/quests/${questId}/ratings`, {
+      method: "POST",
+      body: JSON.stringify(input),
     }),
 };

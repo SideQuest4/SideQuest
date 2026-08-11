@@ -41,6 +41,9 @@ export default function QuestCard({ quest }: { quest: QuestSummary }) {
           🎯 {filled}/{quest.slotCount} slot{quest.slotCount > 1 ? "s" : ""} filled
         </span>
         <span>💬 {quest.bidCount} bid{quest.bidCount === 1 ? "" : "s"}</span>
+        {quest.poster.ratingCount > 0 && quest.poster.averageStars != null && (
+          <span>⭐ {quest.poster.averageStars.toFixed(1)} poster</span>
+        )}
         <span className="ml-auto">{formatRelativeTime(quest.createdAt)}</span>
       </div>
     </Link>

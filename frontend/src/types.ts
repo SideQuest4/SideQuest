@@ -24,12 +24,15 @@ export interface Poster {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  averageStars: number | null;
+  ratingCount: number;
 }
 
 export interface Slot {
   id: string;
   status: SlotStatus;
   assignedQuesterId: string | null;
+  assignedQuesterName: string | null;
 }
 
 export interface QuestSummary {
@@ -81,6 +84,32 @@ export interface Bid {
   status: BidStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Rating {
+  id: string;
+  questId: string;
+  raterId: string;
+  raterName: string;
+  rateeId: string;
+  rateeName: string;
+  stars: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface UserRatingSummary {
+  userId: string;
+  averageStars: number | null;
+  ratingCount: number;
+  recent: Rating[];
+}
+
+export interface CreateRatingInput {
+  raterId: string;
+  rateeId: string;
+  stars: number;
+  comment?: string | null;
 }
 
 export interface CreateQuestInput {

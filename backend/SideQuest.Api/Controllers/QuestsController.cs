@@ -44,7 +44,7 @@ public class QuestsController : ControllerBase
 
         var query = _db.Quests
             .Include(q => q.Category)
-            .Include(q => q.Poster)
+            .Include(q => q.Poster).ThenInclude(u => u!.RatingsReceived)
             .Include(q => q.Slots)
             .Include(q => q.Bids)
             .AsQueryable();
@@ -90,8 +90,8 @@ public class QuestsController : ControllerBase
     {
         var quest = await _db.Quests
             .Include(q => q.Category)
-            .Include(q => q.Poster)
-            .Include(q => q.Slots)
+            .Include(q => q.Poster).ThenInclude(u => u!.RatingsReceived)
+            .Include(q => q.Slots).ThenInclude(s => s.AssignedQuester)
             .Include(q => q.Bids)
             .Include(q => q.EscrowPayments)
             .FirstOrDefaultAsync(q => q.Id == id);
@@ -112,8 +112,8 @@ public class QuestsController : ControllerBase
     {
         var quest = await _db.Quests
             .Include(q => q.Category)
-            .Include(q => q.Poster)
-            .Include(q => q.Slots)
+            .Include(q => q.Poster).ThenInclude(u => u!.RatingsReceived)
+            .Include(q => q.Slots).ThenInclude(s => s.AssignedQuester)
             .Include(q => q.Bids)
             .Include(q => q.EscrowPayments)
             .FirstOrDefaultAsync(q => q.Id == id);
