@@ -36,6 +36,9 @@ public enum SlotStatus
 
     /// <summary>Quester was removed by the poster; the slot reopens.</summary>
     Kicked = 4,
+
+    /// <summary>Frozen pending manual review of a dispute on this slot.</summary>
+    Disputed = 5,
 }
 
 /// <summary>State of a quester's bid on a quest.</summary>

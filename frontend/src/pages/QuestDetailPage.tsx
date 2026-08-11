@@ -7,7 +7,7 @@ import { formatMoney, formatRelativeTime } from "../format";
 import StatusBadge from "../components/StatusBadge";
 import BidPanel from "../components/BidPanel";
 import RatingPanel from "../components/RatingPanel";
-import DisputePanel from "../components/DisputePanel";
+import SlotCard from "../components/SlotCard";
 import Stars from "../components/Stars";
 
 export default function QuestDetailPage() {
@@ -109,30 +109,20 @@ export default function QuestDetailPage() {
 
       <EscrowPanel quest={quest} onComplete={loadQuest} />
 
-      <DisputePanel quest={quest} onChanged={loadQuest} />
-
       <RatingPanel quest={quest} reloadKey={liveTick} />
 
       {/* Slots */}
       <div className="mt-6">
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Slots</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-3">
           {quest.slots.map((slot, i) => (
-            <div
+            <SlotCard
               key={slot.id}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
-            >
-              <span className="font-medium text-slate-700">Slot {i + 1}</span>
-              <span
-                className={
-                  slot.status === "Open"
-                    ? "text-emerald-600"
-                    : "text-slate-400"
-                }
-              >
-                {slot.status}
-              </span>
-            </div>
+              slot={slot}
+              index={i}
+              quest={quest}
+              onChanged={loadQuest}
+            />
           ))}
         </div>
       </div>

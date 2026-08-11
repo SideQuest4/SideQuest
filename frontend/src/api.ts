@@ -7,6 +7,7 @@ import type {
   QuestDetail,
   QuestSummary,
   Rating,
+  SlotRefundOutcome,
   UserRatingSummary,
 } from "./types";
 
@@ -68,16 +69,39 @@ export const api = {
   completeQuest: (id: string) =>
     request<QuestDetail>(`/quests/${id}/complete`, { method: "POST" }),
 
-  openDispute: (questId: string, byUserId: string, reason: string) =>
-    request<QuestDetail>(`/quests/${questId}/dispute`, {
+  // ---- Slot actions: check-in / no-show / disputes ----
+  checkInSlot: (slotId: string, userId: string) =>
+    request<QuestDetail>(`/slots/${slotId}/checkin`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    }),
+
+  confirmSlot: (slotId: string, userId: string) =>
+    request<QuestDetail>(`/slots/${slotId}/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    }),
+
+  reportNoShow: (slotId: string, byUserId: string, reason?: string) =>
+    request<QuestDetail>(`/slots/${slotId}/no-show`, {
+      method: "POST",
+      body: JSON.stringify({ byUserId, reason: reason || null }),
+    }),
+
+  disputeSlot: (slotId: string, byUserId: string, reason: string) =>
+    request<QuestDetail>(`/slots/${slotId}/dispute`, {
       method: "POST",
       body: JSON.stringify({ byUserId, reason }),
     }),
 
-  resolveDispute: (questId: string, outcome: DisputeOutcome) =>
-    request<QuestDetail>(`/quests/${questId}/dispute/resolve`, {
+  resolveSlotDispute: (
+    slotId: string,
+    outcome: DisputeOutcome,
+    slotOutcome?: SlotRefundOutcome,
+  ) =>
+    request<QuestDetail>(`/slots/${slotId}/dispute/resolve`, {
       method: "POST",
-      body: JSON.stringify({ outcome }),
+      body: JSON.stringify({ outcome, slotOutcome: slotOutcome || null }),
     }),
 
   // ---- Bidding ----

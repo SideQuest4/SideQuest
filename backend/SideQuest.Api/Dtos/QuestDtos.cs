@@ -43,8 +43,6 @@ public record QuestDetailDto(
     IReadOnlyList<SlotDto> Slots,
     int BidCount,
     EscrowSummaryDto Escrow,
-    string? DisputeReason,
-    DateTimeOffset? DisputedAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt)
 {
@@ -53,8 +51,7 @@ public record QuestDetailDto(
         q.Deadline, q.Status.ToString(),
         CategoryDto.FromEntity(q.Category!), PosterDto.FromEntity(q.Poster!),
         q.Slots.OrderBy(s => s.CreatedAt).Select(SlotDto.FromEntity).ToList(),
-        q.Bids.Count, EscrowSummaryDto.FromQuest(q),
-        q.DisputeReason, q.DisputedAt, q.CreatedAt, q.UpdatedAt);
+        q.Bids.Count, EscrowSummaryDto.FromQuest(q), q.CreatedAt, q.UpdatedAt);
 }
 
 /// <summary>Aggregate escrow state for a quest, for display.</summary>
@@ -80,10 +77,16 @@ public record SlotDto(
     Guid Id,
     string Status,
     Guid? AssignedQuesterId,
-    string? AssignedQuesterName)
+    string? AssignedQuesterName,
+    string? DisputeReason,
+    DateTimeOffset? DisputedAt,
+    DateTimeOffset? CheckedInAt,
+    DateTimeOffset? PosterConfirmedAt,
+    DateTimeOffset? NoShowReportedAt)
 {
-    public static SlotDto FromEntity(QuestSlot s) =>
-        new(s.Id, s.Status.ToString(), s.AssignedQuesterId, s.AssignedQuester?.DisplayName);
+    public static SlotDto FromEntity(QuestSlot s) => new(
+        s.Id, s.Status.ToString(), s.AssignedQuesterId, s.AssignedQuester?.DisplayName,
+        s.DisputeReason, s.DisputedAt, s.CheckedInAt, s.PosterConfirmedAt, s.NoShowReportedAt);
 }
 
 public record CategoryDto(Guid Id, string Name, string Slug)

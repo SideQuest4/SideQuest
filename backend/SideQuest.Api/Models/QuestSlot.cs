@@ -24,4 +24,21 @@ public class QuestSlot
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? FilledAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+
+    // ---- Dispute (per-slot, manual review in V1) ----
+
+    /// <summary>Why this slot was disputed, set when it moves to Disputed.</summary>
+    public string? DisputeReason { get; set; }
+    public DateTimeOffset? DisputedAt { get; set; }
+
+    // ---- No-show verification, Layer 1: mutual check-in ----
+
+    /// <summary>Set when the quester checks in / marks they've started the work.</summary>
+    public DateTimeOffset? CheckedInAt { get; set; }
+
+    /// <summary>Set when the poster confirms the quester showed up.</summary>
+    public DateTimeOffset? PosterConfirmedAt { get; set; }
+
+    /// <summary>Set when the poster reports the quester as a no-show.</summary>
+    public DateTimeOffset? NoShowReportedAt { get; set; }
 }

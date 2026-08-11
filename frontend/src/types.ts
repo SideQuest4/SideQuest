@@ -12,7 +12,8 @@ export type SlotStatus =
   | "Active"
   | "Completed"
   | "Dropped"
-  | "Kicked";
+  | "Kicked"
+  | "Disputed";
 
 export interface Category {
   id: string;
@@ -33,6 +34,11 @@ export interface Slot {
   status: SlotStatus;
   assignedQuesterId: string | null;
   assignedQuesterName: string | null;
+  disputeReason: string | null;
+  disputedAt: string | null;
+  checkedInAt: string | null;
+  posterConfirmedAt: string | null;
+  noShowReportedAt: string | null;
 }
 
 export interface QuestSummary {
@@ -62,12 +68,11 @@ export interface EscrowSummary {
 export interface QuestDetail extends Omit<QuestSummary, "slotCount" | "openSlotCount"> {
   slots: Slot[];
   escrow: EscrowSummary;
-  disputeReason: string | null;
-  disputedAt: string | null;
   updatedAt: string;
 }
 
 export type DisputeOutcome = "refund" | "release";
+export type SlotRefundOutcome = "reopen" | "cancel";
 
 export type BidStatus = "Pending" | "Countered" | "Accepted" | "Declined";
 

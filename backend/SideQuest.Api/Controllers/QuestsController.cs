@@ -88,14 +88,7 @@ public class QuestsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<QuestDetailDto>> GetById(Guid id)
     {
-        var quest = await _db.Quests
-            .Include(q => q.Category)
-            .Include(q => q.Poster).ThenInclude(u => u!.RatingsReceived)
-            .Include(q => q.Slots).ThenInclude(s => s.AssignedQuester)
-            .Include(q => q.Bids)
-            .Include(q => q.EscrowPayments)
-            .FirstOrDefaultAsync(q => q.Id == id);
-
+        var quest = await LoadQuestGraph(id);
         return quest is null ? NotFound() : Ok(QuestDetailDto.FromEntity(quest));
     }
 
@@ -110,19 +103,13 @@ public class QuestsController : ControllerBase
     [HttpPost("{id:guid}/complete")]
     public async Task<ActionResult<QuestDetailDto>> Complete(Guid id)
     {
-        var quest = await _db.Quests
-            .Include(q => q.Category)
-            .Include(q => q.Poster).ThenInclude(u => u!.RatingsReceived)
-            .Include(q => q.Slots).ThenInclude(s => s.AssignedQuester)
-            .Include(q => q.Bids)
-            .Include(q => q.EscrowPayments)
-            .FirstOrDefaultAsync(q => q.Id == id);
+        var quest = await LoadQuestGraph(id);
 
         if (quest is null) return NotFound();
         if (quest.Status == QuestStatus.Complete)
             return Conflict("Quest is already complete.");
-        if (quest.Status == QuestStatus.Disputed)
-            return Conflict("Quest is under dispute and can't be completed.");
+        if (quest.Slots.Any(s => s.Status == SlotStatus.Disputed))
+            return Conflict("Resolve the open dispute on this quest before completing it.");
 
         var filledSlots = quest.Slots.Where(s => s.Status == SlotStatus.Active).ToList();
         if (filledSlots.Count == 0)
@@ -150,114 +137,17 @@ public class QuestsController : ControllerBase
             slot.CompletedAt = now;
         }
 
+        // Closing out the quest: cancel any slots that were never filled so none
+        // are left orphaned as "Open" on a Complete quest.
+        foreach (var slot in quest.Slots.Where(s => s.Status == SlotStatus.Open))
+            slot.Status = SlotStatus.Dropped;
+
         quest.Status = QuestStatus.Complete;
         quest.UpdatedAt = now;
 
         await _db.SaveChangesAsync();
         await _notifier.QuestChangedAsync(quest.Id);
 
-        return Ok(QuestDetailDto.FromEntity(quest));
-    }
-
-    /// <summary>
-    /// A participant (the poster or an assigned quester) opens a dispute on an
-    /// in-progress quest that still holds escrow, freezing it for manual review.
-    /// </summary>
-    /// <remarks>Auth is stubbed, so the raiser is taken from the request body.</remarks>
-    [HttpPost("{id:guid}/dispute")]
-    public async Task<ActionResult<QuestDetailDto>> OpenDispute(Guid id, [FromBody] OpenDisputeDto dto)
-    {
-        var quest = await LoadQuestGraph(id);
-        if (quest is null) return NotFound();
-
-        if (quest.Status == QuestStatus.Disputed)
-            return Conflict("This quest is already under dispute.");
-        if (quest.Status != QuestStatus.Filling && quest.Status != QuestStatus.Closed)
-            return Conflict("Only an in-progress quest with active work can be disputed.");
-        if (!quest.EscrowPayments.Any(p => p.Status == EscrowStatus.Held))
-            return Conflict("There is no escrow held on this quest to dispute.");
-
-        var isParticipant = dto.ByUserId == quest.PosterId
-            || quest.Slots.Any(s => s.AssignedQuesterId == dto.ByUserId);
-        if (!isParticipant)
-            return BadRequest("Only the poster or an assigned quester can dispute this quest.");
-
-        var now = DateTimeOffset.UtcNow;
-        quest.Status = QuestStatus.Disputed;
-        quest.DisputeReason = dto.Reason.Trim();
-        quest.DisputedAt = now;
-        quest.UpdatedAt = now;
-
-        await _db.SaveChangesAsync();
-        await _notifier.QuestChangedAsync(quest.Id);
-        return Ok(QuestDetailDto.FromEntity(quest));
-    }
-
-    /// <summary>
-    /// Manual-review resolution of a disputed quest: "refund" returns held
-    /// escrow to the poster (in full, no fee), "release" pays the questers.
-    /// </summary>
-    /// <remarks>Auth is stubbed; this stands in for an admin/moderator action.</remarks>
-    [HttpPost("{id:guid}/dispute/resolve")]
-    public async Task<ActionResult<QuestDetailDto>> ResolveDispute(Guid id, [FromBody] ResolveDisputeDto dto)
-    {
-        var outcome = dto.Outcome.Trim().ToLowerInvariant();
-        if (outcome != "refund" && outcome != "release")
-            return BadRequest("Outcome must be 'refund' or 'release'.");
-
-        var quest = await LoadQuestGraph(id);
-        if (quest is null) return NotFound();
-        if (quest.Status != QuestStatus.Disputed)
-            return Conflict("This quest is not under dispute.");
-
-        var now = DateTimeOffset.UtcNow;
-        var held = quest.EscrowPayments.Where(p => p.Status == EscrowStatus.Held).ToList();
-
-        if (outcome == "refund")
-        {
-            foreach (var payment in held)
-            {
-                var res = await _payments.RefundAsync(payment);
-                if (!res.Success)
-                    return Problem(
-                        detail: $"Refund failed: {res.FailureReason}",
-                        statusCode: StatusCodes.Status502BadGateway,
-                        title: "Escrow refund failed");
-
-                payment.Status = EscrowStatus.Refunded;
-                payment.PayoutRef = res.PayoutRef;
-                payment.ReleasedAt = now;
-            }
-            foreach (var slot in quest.Slots.Where(s => s.Status == SlotStatus.Active))
-                slot.Status = SlotStatus.Dropped;
-            quest.Status = QuestStatus.Closed;
-        }
-        else // release
-        {
-            foreach (var payment in held)
-            {
-                var res = await _payments.ReleaseAsync(payment);
-                if (!res.Success)
-                    return Problem(
-                        detail: $"Payout failed: {res.FailureReason}",
-                        statusCode: StatusCodes.Status502BadGateway,
-                        title: "Escrow release failed");
-
-                payment.Status = EscrowStatus.Released;
-                payment.PayoutRef = res.PayoutRef;
-                payment.ReleasedAt = now;
-            }
-            foreach (var slot in quest.Slots.Where(s => s.Status == SlotStatus.Active))
-            {
-                slot.Status = SlotStatus.Completed;
-                slot.CompletedAt = now;
-            }
-            quest.Status = QuestStatus.Complete;
-        }
-
-        quest.UpdatedAt = now;
-        await _db.SaveChangesAsync();
-        await _notifier.QuestChangedAsync(quest.Id);
         return Ok(QuestDetailDto.FromEntity(quest));
     }
 
